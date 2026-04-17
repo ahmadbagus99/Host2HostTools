@@ -22,6 +22,12 @@
     </style>
 </head>
 <body>
+    @php
+        $editExtraHeaders = old('extra_headers');
+        if ($editExtraHeaders === null && isset($editAuthProfile) && $editAuthProfile?->extra_headers) {
+            $editExtraHeaders = json_encode($editAuthProfile->extra_headers, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        }
+    @endphp
     <h1>H2H Testing Tool</h1>
     <div class="nav">
         <a href="/systems">Systems</a>
@@ -46,51 +52,57 @@
     @endif
 
     <section class="card">
-        <h2>Tambah Auth Profile</h2>
-        <form method="POST" action="/auth-profiles">
+        <h2>{{ $editAuthProfile ? 'Edit Auth Profile' : 'Tambah Auth Profile' }}</h2>
+        <form method="POST" action="{{ $editAuthProfile ? '/auth-profiles/'.$editAuthProfile->id : '/auth-profiles' }}">
             @csrf
+            @if ($editAuthProfile)
+                @method('PUT')
+            @endif
             <label>System / Project</label>
             <select name="h2h_system_id" required>
                 <option value="">-- Pilih System --</option>
                 @foreach ($systems as $system)
-                    <option value="{{ $system->id }}">{{ $system->name }} ({{ $system->code }})</option>
+                    <option value="{{ $system->id }}" @selected((int) old('h2h_system_id', $editAuthProfile->h2h_system_id ?? 0) === $system->id)>{{ $system->name }} ({{ $system->code }})</option>
                 @endforeach
             </select>
 
             <label>Nama Profile</label>
-            <input name="name" placeholder="Contoh: Bearer UAT">
+            <input name="name" placeholder="Contoh: Bearer UAT" value="{{ old('name', $editAuthProfile->name ?? '') }}">
 
             <label>Tipe Auth</label>
             <select name="auth_type">
-                <option value="none">No Auth</option>
-                <option value="bearer">Bearer Token</option>
-                <option value="basic">Basic Auth</option>
-                <option value="api_key_header">API Key Header</option>
-                <option value="creatio">Creatio Login + BPMCSRF</option>
+                <option value="none" @selected(old('auth_type', $editAuthProfile->auth_type ?? '') === 'none')>No Auth</option>
+                <option value="bearer" @selected(old('auth_type', $editAuthProfile->auth_type ?? '') === 'bearer')>Bearer Token</option>
+                <option value="basic" @selected(old('auth_type', $editAuthProfile->auth_type ?? '') === 'basic')>Basic Auth</option>
+                <option value="api_key_header" @selected(old('auth_type', $editAuthProfile->auth_type ?? '') === 'api_key_header')>API Key Header</option>
+                <option value="creatio" @selected(old('auth_type', $editAuthProfile->auth_type ?? '') === 'creatio')>Creatio Login + BPMCSRF</option>
             </select>
 
             <label>Bearer Token</label>
-            <input name="token">
+            <input name="token" value="{{ old('token', $editAuthProfile->token ?? '') }}">
 
             <label>Basic Username</label>
-            <input name="username">
+            <input name="username" value="{{ old('username', $editAuthProfile->username ?? '') }}">
 
             <label>Basic Password</label>
-            <input name="password" type="password">
+            <input name="password" type="password" value="{{ old('password', $editAuthProfile->password ?? '') }}">
 
             <label>Creatio Login Path</label>
-            <input name="creatio_login_path" placeholder="/ServiceModel/AuthService.svc/Login">
+            <input name="creatio_login_path" placeholder="/ServiceModel/AuthService.svc/Login" value="{{ old('creatio_login_path', $editAuthProfile->creatio_login_path ?? '') }}">
 
             <label>API Key</label>
-            <input name="api_key">
+            <input name="api_key" value="{{ old('api_key', $editAuthProfile->api_key ?? '') }}">
 
             <label>Nama Header API Key</label>
-            <input name="api_key_header" placeholder="X-API-KEY">
+            <input name="api_key_header" placeholder="X-API-KEY" value="{{ old('api_key_header', $editAuthProfile->api_key_header ?? '') }}">
 
             <label>Extra Headers (JSON object)</label>
-            <textarea name="extra_headers" placeholder='{"X-CUSTOM":"value"}'></textarea>
+            <textarea name="extra_headers" placeholder='{"X-CUSTOM":"value"}'>{{ $editExtraHeaders }}</textarea>
 
-            <button type="submit">Simpan Auth Profile</button>
+            <button type="submit">{{ $editAuthProfile ? 'Update Auth Profile' : 'Simpan Auth Profile' }}</button>
+            @if ($editAuthProfile)
+                <a href="/auth-profiles">Batal edit</a>
+            @endif
         </form>
     </section>
 
@@ -115,6 +127,7 @@
                     <th>Nama</th>
                     <th>Tipe Auth</th>
                     <th>Creatio Path</th>
+                    <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -124,10 +137,11 @@
                         <td>{{ $profile->name }}</td>
                         <td>{{ $profile->auth_type }}</td>
                         <td>{{ $profile->creatio_login_path ?? '-' }}</td>
+                        <td><a href="/auth-profiles/{{ $profile->id }}/edit?system_id={{ $selectedSystemId }}">Edit</a></td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4">Belum ada auth profile.</td>
+                        <td colspan="5">Belum ada auth profile.</td>
                     </tr>
                 @endforelse
             </tbody>

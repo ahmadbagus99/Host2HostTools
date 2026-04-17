@@ -45,19 +45,25 @@
     @endif
 
     <section class="card">
-        <h2>Tambah System / Project</h2>
-        <form method="POST" action="/systems">
+        <h2>{{ $editSystem ? 'Edit System / Project' : 'Tambah System / Project' }}</h2>
+        <form method="POST" action="{{ $editSystem ? '/systems/'.$editSystem->id : '/systems' }}">
             @csrf
+            @if ($editSystem)
+                @method('PUT')
+            @endif
             <label>Nama System</label>
-            <input name="name" placeholder="Contoh: Jamkrida">
+            <input name="name" placeholder="Contoh: Jamkrida" value="{{ old('name', $editSystem->name ?? '') }}">
 
             <label>Kode Unik</label>
-            <input name="code" placeholder="JAMKRIDA">
+            <input name="code" placeholder="JAMKRIDA" value="{{ old('code', $editSystem->code ?? '') }}">
 
             <label>Deskripsi</label>
-            <input name="description" placeholder="Opsional">
+            <input name="description" placeholder="Opsional" value="{{ old('description', $editSystem->description ?? '') }}">
 
-            <button type="submit">Simpan System</button>
+            <button type="submit">{{ $editSystem ? 'Update System' : 'Simpan System' }}</button>
+            @if ($editSystem)
+                <a href="/systems">Batal edit</a>
+            @endif
         </form>
     </section>
 
@@ -69,6 +75,7 @@
                     <th>Nama</th>
                     <th>Kode</th>
                     <th>Deskripsi</th>
+                    <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -77,10 +84,11 @@
                         <td>{{ $system->name }}</td>
                         <td>{{ $system->code }}</td>
                         <td>{{ $system->description ?? '-' }}</td>
+                        <td><a href="/systems/{{ $system->id }}/edit">Edit</a></td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="3">Belum ada system.</td>
+                        <td colspan="4">Belum ada system.</td>
                     </tr>
                 @endforelse
             </tbody>

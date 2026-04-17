@@ -22,6 +22,12 @@
     </style>
 </head>
 <body>
+    @php
+        $editDefaultHeaders = old('default_headers');
+        if ($editDefaultHeaders === null && isset($editEndpoint) && $editEndpoint?->default_headers) {
+            $editDefaultHeaders = json_encode($editEndpoint->default_headers, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        }
+    @endphp
     <h1>H2H Testing Tool</h1>
     <div class="nav">
         <a href="/systems">Systems</a>
@@ -46,50 +52,56 @@
     @endif
 
     <section class="card">
-        <h2>Tambah Endpoint H2H</h2>
-        <form method="POST" action="/endpoints">
+        <h2>{{ $editEndpoint ? 'Edit Endpoint H2H' : 'Tambah Endpoint H2H' }}</h2>
+        <form method="POST" action="{{ $editEndpoint ? '/endpoints/'.$editEndpoint->id : '/endpoints' }}">
             @csrf
+            @if ($editEndpoint)
+                @method('PUT')
+            @endif
             <label>System / Project</label>
             <select name="h2h_system_id" required>
                 <option value="">-- Pilih System --</option>
                 @foreach ($systems as $system)
-                    <option value="{{ $system->id }}">{{ $system->name }} ({{ $system->code }})</option>
+                    <option value="{{ $system->id }}" @selected((int) old('h2h_system_id', $editEndpoint->h2h_system_id ?? 0) === $system->id)>{{ $system->name }} ({{ $system->code }})</option>
                 @endforeach
             </select>
 
             <label>Nama Endpoint</label>
-            <input name="name" placeholder="Contoh: Pengajuan Klaim">
+            <input name="name" placeholder="Contoh: Pengajuan Klaim" value="{{ old('name', $editEndpoint->name ?? '') }}">
 
             <label>Base URL</label>
-            <input name="base_url" placeholder="https://api-mitra.com">
+            <input name="base_url" placeholder="https://api-mitra.com" value="{{ old('base_url', $editEndpoint->base_url ?? '') }}">
 
             <label>Path</label>
-            <input name="path" value="/v1/claim">
+            <input name="path" value="{{ old('path', $editEndpoint->path ?? '/v1/claim') }}">
 
             <label>Method</label>
             <select name="method">
-                <option>POST</option>
-                <option>GET</option>
-                <option>PUT</option>
-                <option>PATCH</option>
-                <option>DELETE</option>
+                <option @selected(old('method', $editEndpoint->method ?? '') === 'POST')>POST</option>
+                <option @selected(old('method', $editEndpoint->method ?? '') === 'GET')>GET</option>
+                <option @selected(old('method', $editEndpoint->method ?? '') === 'PUT')>PUT</option>
+                <option @selected(old('method', $editEndpoint->method ?? '') === 'PATCH')>PATCH</option>
+                <option @selected(old('method', $editEndpoint->method ?? '') === 'DELETE')>DELETE</option>
             </select>
 
             <label>Timeout (detik)</label>
-            <input name="timeout_seconds" type="number" value="30">
+            <input name="timeout_seconds" type="number" value="{{ old('timeout_seconds', $editEndpoint->timeout_seconds ?? 30) }}">
 
             <label>Auth Profile (opsional)</label>
             <select name="auth_profile_id">
                 <option value="">-- Tanpa Auth Profile --</option>
                 @foreach ($authProfiles as $profile)
-                    <option value="{{ $profile->id }}">{{ $profile->name }} - {{ $profile->system?->code }}</option>
+                    <option value="{{ $profile->id }}" @selected((int) old('auth_profile_id', $editEndpoint->auth_profile_id ?? 0) === $profile->id)>{{ $profile->name }} - {{ $profile->system?->code }}</option>
                 @endforeach
             </select>
 
             <label>Default Headers (JSON object)</label>
-            <textarea name="default_headers" placeholder='{"Content-Type":"application/json"}'></textarea>
+            <textarea name="default_headers" placeholder='{"Content-Type":"application/json"}'>{{ $editDefaultHeaders }}</textarea>
 
-            <button type="submit">Simpan Endpoint</button>
+            <button type="submit">{{ $editEndpoint ? 'Update Endpoint' : 'Simpan Endpoint' }}</button>
+            @if ($editEndpoint)
+                <a href="/endpoints">Batal edit</a>
+            @endif
         </form>
     </section>
 
@@ -114,6 +126,7 @@
                     <th>Endpoint</th>
                     <th>Method</th>
                     <th>Auth</th>
+                    <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -123,10 +136,11 @@
                         <td>{{ $endpoint->name }}<br>{{ $endpoint->base_url }}{{ $endpoint->path }}</td>
                         <td>{{ $endpoint->method }}</td>
                         <td>{{ $endpoint->authProfile?->name ?? '-' }}</td>
+                        <td><a href="/endpoints/{{ $endpoint->id }}/edit?system_id={{ $selectedSystemId }}">Edit</a></td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4">Belum ada endpoint.</td>
+                        <td colspan="5">Belum ada endpoint.</td>
                     </tr>
                 @endforelse
             </tbody>

@@ -20,6 +20,15 @@ class H2hToolController extends Controller
     {
         return view('systems', [
             'systems' => H2hSystem::query()->orderBy('name')->get(),
+            'editSystem' => null,
+        ]);
+    }
+
+    public function editSystemPage(H2hSystem $system)
+    {
+        return view('systems', [
+            'systems' => H2hSystem::query()->orderBy('name')->get(),
+            'editSystem' => $system,
         ]);
     }
 
@@ -30,6 +39,23 @@ class H2hToolController extends Controller
         return view('auth-profiles', [
             'systems' => H2hSystem::query()->orderBy('name')->get(),
             'selectedSystemId' => $selectedSystemId,
+            'editAuthProfile' => null,
+            'authProfiles' => AuthProfile::query()
+                ->with('system')
+                ->when($selectedSystemId, fn ($query) => $query->where('h2h_system_id', $selectedSystemId))
+                ->latest()
+                ->get(),
+        ]);
+    }
+
+    public function editAuthProfilePage(AuthProfile $authProfile, Request $request)
+    {
+        $selectedSystemId = $request->integer('system_id') ?: $authProfile->h2h_system_id;
+
+        return view('auth-profiles', [
+            'systems' => H2hSystem::query()->orderBy('name')->get(),
+            'selectedSystemId' => $selectedSystemId,
+            'editAuthProfile' => $authProfile,
             'authProfiles' => AuthProfile::query()
                 ->with('system')
                 ->when($selectedSystemId, fn ($query) => $query->where('h2h_system_id', $selectedSystemId))
@@ -45,6 +71,28 @@ class H2hToolController extends Controller
         return view('endpoints', [
             'systems' => H2hSystem::query()->orderBy('name')->get(),
             'selectedSystemId' => $selectedSystemId,
+            'editEndpoint' => null,
+            'authProfiles' => AuthProfile::query()
+                ->with('system')
+                ->when($selectedSystemId, fn ($query) => $query->where('h2h_system_id', $selectedSystemId))
+                ->latest()
+                ->get(),
+            'endpoints' => H2hEndpoint::query()
+                ->with(['authProfile', 'system'])
+                ->when($selectedSystemId, fn ($query) => $query->where('h2h_system_id', $selectedSystemId))
+                ->latest()
+                ->get(),
+        ]);
+    }
+
+    public function editEndpointPage(H2hEndpoint $endpoint, Request $request)
+    {
+        $selectedSystemId = $request->integer('system_id') ?: $endpoint->h2h_system_id;
+
+        return view('endpoints', [
+            'systems' => H2hSystem::query()->orderBy('name')->get(),
+            'selectedSystemId' => $selectedSystemId,
+            'editEndpoint' => $endpoint,
             'authProfiles' => AuthProfile::query()
                 ->with('system')
                 ->when($selectedSystemId, fn ($query) => $query->where('h2h_system_id', $selectedSystemId))
@@ -101,6 +149,23 @@ class H2hToolController extends Controller
         return redirect('/systems')->with('status', 'System/project berhasil disimpan.');
     }
 
+    public function updateSystem(Request $request, H2hSystem $system)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'code' => ['required', 'string', 'max:50', 'alpha_dash', Rule::unique('h2h_systems', 'code')->ignore($system->id)],
+            'description' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $system->update([
+            'name' => $validated['name'],
+            'code' => strtoupper($validated['code']),
+            'description' => $validated['description'] ?? null,
+        ]);
+
+        return redirect('/systems')->with('status', 'System/project berhasil diupdate.');
+    }
+
     public function storeAuthProfile(Request $request)
     {
         $validated = $request->validate([
@@ -132,6 +197,39 @@ class H2hToolController extends Controller
         ]);
 
         return redirect('/auth-profiles')->with('status', 'Auth profile berhasil disimpan.');
+    }
+
+    public function updateAuthProfile(Request $request, AuthProfile $authProfile)
+    {
+        $validated = $request->validate([
+            'h2h_system_id' => ['required', 'integer', 'exists:h2h_systems,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'auth_type' => ['required', Rule::in(['none', 'bearer', 'basic', 'api_key_header', 'creatio'])],
+            'token' => ['nullable', 'string'],
+            'username' => ['nullable', 'string'],
+            'password' => ['nullable', 'string'],
+            'creatio_login_path' => ['nullable', 'string', 'max:255'],
+            'api_key' => ['nullable', 'string'],
+            'api_key_header' => ['nullable', 'string', 'max:255'],
+            'extra_headers' => ['nullable', 'string'],
+        ]);
+
+        $extraHeaders = $this->decodeJsonArray($validated['extra_headers'] ?? null, 'extra_headers');
+
+        $authProfile->update([
+            'h2h_system_id' => $validated['h2h_system_id'],
+            'name' => $validated['name'],
+            'auth_type' => $validated['auth_type'],
+            'token' => $validated['token'] ?? null,
+            'username' => $validated['username'] ?? null,
+            'password' => $validated['password'] ?? null,
+            'creatio_login_path' => $validated['creatio_login_path'] ?? null,
+            'api_key' => $validated['api_key'] ?? null,
+            'api_key_header' => $validated['api_key_header'] ?? null,
+            'extra_headers' => $extraHeaders,
+        ]);
+
+        return redirect('/auth-profiles')->with('status', 'Auth profile berhasil diupdate.');
     }
 
     public function storeEndpoint(Request $request)
@@ -167,6 +265,41 @@ class H2hToolController extends Controller
         ]);
 
         return redirect('/endpoints')->with('status', 'Endpoint H2H berhasil disimpan.');
+    }
+
+    public function updateEndpoint(Request $request, H2hEndpoint $endpoint)
+    {
+        $validated = $request->validate([
+            'h2h_system_id' => ['required', 'integer', 'exists:h2h_systems,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'base_url' => ['required', 'url'],
+            'path' => ['required', 'string', 'max:255'],
+            'method' => ['required', Rule::in(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])],
+            'timeout_seconds' => ['required', 'integer', 'min:1', 'max:120'],
+            'auth_profile_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('auth_profiles', 'id')->where(
+                    fn ($query) => $query->where('h2h_system_id', $request->input('h2h_system_id'))
+                ),
+            ],
+            'default_headers' => ['nullable', 'string'],
+        ]);
+
+        $defaultHeaders = $this->decodeJsonArray($validated['default_headers'] ?? null, 'default_headers');
+
+        $endpoint->update([
+            'h2h_system_id' => $validated['h2h_system_id'],
+            'name' => $validated['name'],
+            'base_url' => rtrim($validated['base_url'], '/'),
+            'path' => '/' . ltrim($validated['path'], '/'),
+            'method' => $validated['method'],
+            'timeout_seconds' => $validated['timeout_seconds'],
+            'auth_profile_id' => $validated['auth_profile_id'] ?? null,
+            'default_headers' => $defaultHeaders,
+        ]);
+
+        return redirect('/endpoints')->with('status', 'Endpoint H2H berhasil diupdate.');
     }
 
     public function run(Request $request)
