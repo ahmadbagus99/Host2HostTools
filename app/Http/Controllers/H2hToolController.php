@@ -241,7 +241,7 @@ class H2hToolController extends Controller
             'base_url' => ['required', 'url'],
             'path' => ['required', 'string', 'max:255'],
             'method' => ['required', Rule::in(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])],
-            'timeout_seconds' => ['required', 'integer', 'min:1', 'max:120'],
+            'timeout_seconds' => ['required', 'integer', 'min:1', 'max:600'],
             'auth_profile_id' => [
                 'nullable',
                 'integer',
@@ -276,7 +276,7 @@ class H2hToolController extends Controller
             'base_url' => ['required', 'url'],
             'path' => ['required', 'string', 'max:255'],
             'method' => ['required', Rule::in(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])],
-            'timeout_seconds' => ['required', 'integer', 'min:1', 'max:120'],
+            'timeout_seconds' => ['required', 'integer', 'min:1', 'max:600'],
             'auth_profile_id' => [
                 'nullable',
                 'integer',
@@ -359,7 +359,7 @@ class H2hToolController extends Controller
         $errorMessage = null;
 
         try {
-            $client = Http::timeout($endpoint->timeout_seconds)->acceptJson();
+            $client = Http::connectTimeout(10)->timeout($endpoint->timeout_seconds)->acceptJson();
             $client = $this->applyAuth($client, $endpoint->authProfile, $endpoint);
 
             if (! empty($mergedHeaders)) {
@@ -436,7 +436,7 @@ class H2hToolController extends Controller
             $loginPath = $authProfile->creatio_login_path ?: '/ServiceModel/AuthService.svc/Login';
             $loginUrl = rtrim($endpoint->base_url, '/') . '/' . ltrim($loginPath, '/');
 
-            $loginResponse = Http::timeout($endpoint->timeout_seconds)
+            $loginResponse = Http::connectTimeout(10)->timeout($endpoint->timeout_seconds)
                 ->acceptJson()
                 ->withHeaders($authProfile->extra_headers ?? [])
                 ->post($loginUrl, [

@@ -133,7 +133,7 @@
                 </select>
 
                 <label>Timeout (detik)</label>
-                <input name="timeout_seconds" type="number" value="30">
+                <input name="timeout_seconds" type="number" min="1" max="600" value="30">
 
                 <label>Auth Profile</label>
                 <select name="auth_profile_id">

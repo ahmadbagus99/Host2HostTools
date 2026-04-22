@@ -85,7 +85,7 @@
             </select>
 
             <label>Timeout (detik)</label>
-            <input name="timeout_seconds" type="number" value="{{ old('timeout_seconds', $editEndpoint->timeout_seconds ?? 30) }}">
+            <input name="timeout_seconds" type="number" min="1" max="600" value="{{ old('timeout_seconds', $editEndpoint->timeout_seconds ?? 30) }}">
 
             <label>Auth Profile (opsional)</label>
             <select name="auth_profile_id">
