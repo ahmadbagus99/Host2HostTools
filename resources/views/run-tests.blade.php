@@ -92,7 +92,7 @@
             </select>
         </form>
         <br>
-        <form method="POST" action="/run-test">
+        <form method="POST" action="/run-test" enctype="multipart/form-data">
             @csrf
             <label>Pilih Endpoint</label>
             <select name="endpoint_id">
@@ -121,6 +121,8 @@
                 <div>
                     <label>Request Body</label>
                     <textarea id="request_body" name="request_body" placeholder='{"claim_no":"CLM-001"}'></textarea>
+                    <label for="request_body_file">Upload Request Body JSON (opsional)</label>
+                    <input type="file" id="request_body_file" name="request_body_file" accept=".json,application/json" onchange="loadRequestBodyFile(event)">
                     <button type="button" class="button-secondary" onclick="formatJsonField('request_body')">Rapikan JSON Body</button>
                 </div>
             </div>
@@ -235,6 +237,33 @@
             }
 
             document.getElementById('request_body').value = templateBodies[templateId];
+        }
+
+        function loadRequestBodyFile(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const rawContent = String(e.target.result || '');
+                if (!rawContent.trim()) {
+                    alert('File JSON kosong.');
+                    return;
+                }
+
+                try {
+                    const parsed = JSON.parse(rawContent);
+                    document.getElementById('request_body').value = JSON.stringify(parsed, null, 2);
+                } catch (error) {
+                    alert('File JSON tidak valid.');
+                }
+            };
+            reader.onerror = function() {
+                alert('Gagal membaca file JSON.');
+            };
+            reader.readAsText(file);
         }
 
         function toggleTemplateSaveFields() {

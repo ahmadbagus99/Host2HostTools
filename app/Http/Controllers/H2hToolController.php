@@ -9,6 +9,7 @@ use App\Models\H2hSystem;
 use App\Models\H2hTestRun;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Illuminate\Validation\ValidationException;
@@ -309,6 +310,7 @@ class H2hToolController extends Controller
             'request_template_id' => ['nullable', 'integer', 'exists:h2h_request_templates,id'],
             'request_headers' => ['nullable', 'string'],
             'request_body' => ['nullable', 'string'],
+            'request_body_file' => ['nullable', 'file', 'mimes:json,txt', 'max:2048'],
             'save_as_template' => ['nullable', 'boolean'],
             'template_name' => ['nullable', 'string', 'max:255'],
             'template_description' => ['nullable', 'string', 'max:255'],
@@ -332,7 +334,7 @@ class H2hToolController extends Controller
 
         $mergedHeaders = array_merge($endpoint->default_headers ?? [], $requestHeaders ?? []);
         $url = rtrim($endpoint->base_url, '/') . '/' . ltrim($endpoint->path, '/');
-        $requestBody = $validated['request_body'] ?? ($selectedTemplate?->request_body);
+        $requestBody = $this->resolveRequestBodyFromInput($request, $validated, $selectedTemplate?->request_body);
         $requestBody = $requestBody === '' ? null : $requestBody;
 
         if (($validated['save_as_template'] ?? false) && $requestBody !== null) {
@@ -502,5 +504,38 @@ class H2hToolController extends Controller
         }
 
         return $decoded;
+    }
+
+    private function resolveRequestBodyFromInput(Request $request, array $validated, ?string $templateBody): ?string
+    {
+        $uploadedBody = $this->readJsonBodyFromUploadedFile($request->file('request_body_file'));
+        if ($uploadedBody !== null) {
+            return $uploadedBody;
+        }
+
+        return $validated['request_body'] ?? $templateBody;
+    }
+
+    private function readJsonBodyFromUploadedFile(?UploadedFile $uploadedFile): ?string
+    {
+        if ($uploadedFile === null) {
+            return null;
+        }
+
+        $rawBody = trim((string) $uploadedFile->get());
+        if ($rawBody === '') {
+            throw ValidationException::withMessages([
+                'request_body_file' => 'File request body JSON tidak boleh kosong.',
+            ]);
+        }
+
+        $decoded = json_decode($rawBody, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw ValidationException::withMessages([
+                'request_body_file' => 'Isi file harus JSON valid.',
+            ]);
+        }
+
+        return json_encode($decoded, JSON_UNESCAPED_SLASHES);
     }
 }
